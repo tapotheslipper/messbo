@@ -17,7 +17,7 @@ def initialize_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(64) NOT NULL,
             owner_id INTEGER NOT NULL
-        )
-    """)
+        )"""
+    )
     con.commit()
     con.close()

@@ -8,10 +8,10 @@ logger = Logger().get_logger()
 
 def main(token):
     try:
+        initialize_db()
         bot = create_bot(token)
         manager = BoardManager()
         register_handlers(bot, manager)
-        initialize_db()
         
         run_bot(bot)
     except Exception as exc:
