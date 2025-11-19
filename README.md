@@ -36,11 +36,11 @@ MessBo - Доска Объявлений это Telegram-бот, позволя�
 git clone https://github.com/Tapotheslipper/messbo.git
 cd messbo
 ```
-1. Создать виртуальное окружение, запустить его и установить зависимости:
+2. Создать виртуальное окружение, запустить его и установить зависимости:
 ```bash
 python -m venv venv
 
-source venv/bin/activate (Linux/MavOS)
+source venv/bin/activate (Linux/MacOS)
 ```
 ```bat
 ./venv/Scripts/activate (Windows)
@@ -48,8 +48,8 @@ source venv/bin/activate (Linux/MavOS)
 ```bash
 pip install -r requirements.txt
 ```
-1. Скопировать файл .env.example в .env и вставить необходимый токен
-1. Запустить:
+3. Скопировать файл .env.example в .env и вставить необходимый токен
+4. Запустить:
 ```bash
 python main.py
 ```
