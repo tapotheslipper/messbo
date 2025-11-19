@@ -8,16 +8,21 @@ def register_handlers(bot: TeleBot, manager: BoardManager):
     @bot.message_handler(content_types=['text'])
     def text_handler(message):
         try:
-            logger.info(f"Message received from '{message.from_user.username}': '{message.text}';")
-            text = message.text.strip().lower()
-            match (text):
+            logger.info(f"Message received from '{message.from_user.username}': '{message.text}'")
+            text = message.text.strip()
+
+            parts = text.split(maxsplit=1)
+            cmd = parts[0].lower()
+            argument = parts[1] if (len(parts) > 1) else (None)
+            
+            match (cmd):
                 case "/help":
                     bot.send_message(message.from_user.id, """
 /new_board = Создать новую доску
 """)
                 case "/new_board":
-                    manager.create_board(message.from_user.id)
-                    bot.send_message(message.from_user.id, "Новая доска создана.")
+                    manager.create_board(message.from_user.id, argument)
+                    bot.send_message(message.from_user.id, f"Доска {board.board_name} создана.")
                 case _:
                     bot.send_message(message.from_user.id, "Напишите '/help' для списка команд.")
         except Exception as exc:

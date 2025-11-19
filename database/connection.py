@@ -1,6 +1,10 @@
+from pathlib import Path
 import sqlite3
 
-def get_connection(db_file = "database/bot.db"):
+BASE_DIR = Path(__file__).parent.parent
+DB_PATH = BASE_DIR / "database" / "bot.db"
+
+def get_connection(db_file = DB_PATH):
     con = sqlite3.connect(db_file, check_same_thread=False)
     return con
 
@@ -11,6 +15,7 @@ def initialize_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS boards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR(64) NOT NULL,
             owner_id INTEGER NOT NULL
         )
     """)

@@ -25,3 +25,4 @@
 2025-11-19 16:44:00 - INFO - Message received from 'usernamefogusername': '/help';
 2025-11-19 16:44:07 - INFO - Message received from 'usernamefogusername': '/help';
 2025-11-19 16:44:09 - INFO - Message received from 'usernamefogusername': '/new_board';
+2025-11-19 17:18:06 - ERROR - Error running bot: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=25)
