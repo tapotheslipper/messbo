@@ -1,14 +1,21 @@
 import telebot
-bot = telebot.TeleBot('8159325387:AAFFB1bsQcNggwsPOqU-IimxbfI_lP4Eo6I')
+from config import BOT_TOKEN
+from database import initialize_db
+from bot import create_bot, BoardManager, register_handlers, run_bot
+from models import Logger
 
-@bot.message_handler(content_types=['text'])
-def get_text_messages(message):
-    match (message.text):
-        case 'Привет':
-            bot.send_message(message.from_user.id, "Привет")
-        case '/help':
-            bot.send_message(message.from_user.id, 'Напиши "Привет"')
-        case _:
-            bot.send_message(message.from_user.id, 'Для списка комманд напиши "/help"')
+logger = Logger().get_logger()
 
-bot.polling(none_stop=True, interval=0)
+def main(token):
+    try:
+        bot = create_bot(token)
+        manager = BoardManager()
+        register_handlers(bot, manager)
+        initialize_db()
+        
+        run_bot(bot)
+    except Exception as exc:
+        logger.error(f"Error in main execution: {exc}.")
+
+if (__name__ == "__main__"):
+    main(BOT_TOKEN)
