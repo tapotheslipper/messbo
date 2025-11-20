@@ -1,3 +1,4 @@
+import time
 import signal
 import sys
 from models import Logger
@@ -15,12 +16,17 @@ def run_bot(bot):
 
     signal.signal(signal.SIGINT, signal_handler)
     
-    try:        
-        bot.polling(
-            interval=0,
-            timeout=20
-        )
-    except Exception as exc:
-        logger.error(f"Error running bot: {exc}", exc_info=True)
-        print("Bot crashed unexpectedly")
-        sys.exit(1)
+    while True:
+        try:        
+            bot.polling(
+                interval=1,
+                timeout=20,
+                non_stop=True
+            )
+        except KeyboardInterrupt:
+            signal_handler(None, None)
+        except Exception as exc:
+            logger.error(f"Polling crashed: {exc}", exc_info=True)
+            print("Polling crashed, restarting in 5 seconds...")
+            time.sleep(5)
+

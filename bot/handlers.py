@@ -1,58 +1,70 @@
+import time
 from telebot import TeleBot
 from bot import BoardManager
 from models import Logger
 
 logger = Logger().get_logger()
 
+HELP_TEXT = (
+    "/messbo_new_board <название> = Создать новую доску (название указывать необязательно)\n"
+    "/messbo_show_boards = Показать все Ваши доски\n"
+    "/messbo_show_board <название> = Показать Вашу доску с данным названием\n"
+)
+
 def register_handlers(bot: TeleBot, manager: BoardManager):
-    @bot.message_handler(content_types=['text'])
-    def text_handler(message):
+    @bot.message_handler(commands=['messbo_help'])
+    def help_handler(message):
+        bot.send_message(message.chat.id, HELP_TEXT)
+        time.sleep(0.05)
+
+    @bot.message_handler(commands=['messbo_new_board'])
+    def new_board_handler(message):
         try:
-            userid = message.from_user.id
-            username = message.from_user.username
-            logger.info(f"Message received from '{username}': '{message.text}'")
-            text = message.text.strip()
+            logger.info(f"[NEW BOARD] User '{message.from_user.username}' ({message.from_user.id}) sent {message.text}.")
+            parts = message.text.split(maxsplit=1)
+            argument = parts[1] if len(parts) > 1 else None
 
-            parts = text.split(maxsplit=1)
-            cmd = parts[0].lower()
-            argument = parts[1] if (len(parts) > 1) else (None)
-            
-            match (cmd):
-                case "/messbo_help":
-                    bot.send_message(userid, """
-/messbo_new_board <название> = Создать новую доску, название необязательно
-/messbo_show_boards = Показать все Ваши доски
-/messbo_show_board <название> = Показать Вашу доску с данным названием
-""")
+            board = manager.create_board(message.from_user.id, argument)
+            reply = f"Доска {board.name} создана." if board else f"Не удалось создать доску '{argument}'."
 
-                case "/messbo_new_board":
-                    board = manager.create_board(userid, argument)
-                    if board:
-                        message = f"Доска {board.name} создана."
-                    else:
-                        message = "Не удалось создать доску. Попробуйте позже."
-                    bot.send_message(userid, message)
-                
-                case "/messbo_show_boards":
-                    boards_list = manager.show_all_boards(userid)
-                    if boards_list:
-                        message = "\n".join(f"{i + 1}. {boards_list[i]}" for i in range(len(boards_list)))
-                    else:
-                        message = "У вас нет досок."
-                    bot.send_message(userid, message)
-                
-                case "/messbo_show_board":
-                    board_name = None
-                    if (argument):
-                        board_name = manager.show_one_board(userid, argument)
-                    if (board_name):
-                        message = board_name
-                    else:
-                        message = f"Доски с названием {argument} нет." if argument else "Пожалуйста, укажите название доски."
-                    bot.send_message(userid, message)
-                
-                case _:
-                    bot.send_message(userid, "Напишите '/messbo_help' для списка команд.")
+            logger.info(
+                f"[NEW BOARD RESULT] User '{message.from_user.username}' ({message.from_user.id}), "
+                f"argument='{argument}', result='{reply}'"
+            )
+
+            bot.send_message(message.chat.id, reply)
         except Exception as exc:
-            logger.error(f"Error in handler: '{exc}';")
-            bot.send_message(userid, "Произошла ошибка. Попробуйте позже.")
+            logger.error(f"[NEW BOARD ERROR] {exc}")
+            bot.send_message(message.chat.id, "Ошибка. Попробуйте позже.")
+        time.sleep(0.05)
+
+    @bot.message_handler(commands=['messbo_show_boards'])
+    def show_boards_handler(message):
+        try:
+            boards = manager.show_all_boards(message.from_user.id)
+            reply = "\n".join(f"{i + 1}. {boards[i]}" for i in range(len(boards))) if boards else "У вас нет досок."
+
+            bot.send_message(message.chat.id, reply)
+        except Exception as exc:
+            logger.error(f"[SHOW BOARDS ERROR] {exc}")
+            bot.send_message(message.chat.id, "Ошибка, попробуйте позже.")
+        time.sleep(0.05)
+
+    @bot.message_handler(commands=['messbo_show_board'])
+    def show_board_handler(message):
+        try:
+            parts = message.text.split(maxsplit=1)
+            argument = parts[1] if len(parts) > 1 else None
+
+            if not argument:
+                bot.send_message(message.chat.id, "Укажите название доски.")
+                return
+
+            board_name = manager.show_one_board(message.from_user.id, argument)
+            reply = board_name if board_name else f"Вашей доски с названием '{argument}' нет."
+
+            bot.send_message(message.chat.id, reply)
+        except Exception as exc:
+            logger.error(f"[SHOW BOARD ERROR] {exc}")
+            bot.send_message(message.chat.id, "Ошибка. Попробуйте позже.")
+        time.sleep(0.05)
