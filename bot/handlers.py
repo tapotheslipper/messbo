@@ -2,6 +2,7 @@ import time
 from telebot import TeleBot
 from controllers import BoardController
 from models import Logger
+import re
 
 logger = Logger().get_logger()
 
@@ -11,6 +12,7 @@ HELP_TEXT = (
     "/messbo_new_board <название> = Создать новую доску (название указывать необязательно)\n"
     "/messbo_show_boards = Показать все Ваши доски\n"
     "/messbo_show_board <название> = Показать Вашу доску с данным названием\n"
+    "/messbo_rename '<название доски>' '<новое название доски>' = Переименовать Вашу доску с первого указанного названия на новое. Оба названия необходимо заключить в любые кавычки\n"
 )
 
 
@@ -86,9 +88,14 @@ def register_handlers(bot: TeleBot, controller: BoardController):
     @bot.message_handler(commands=["messbo_rename"])
     def rename_board_handler(message):
         try:
-            parts = message.text.split(maxsplit=2)
-            argument_old = parts[1] if len(parts) > 1 else None
-            argument_new = parts[2] if len(parts) > 2 else None
+            pattern = r'/messbo_rename\s+([\'"`])(.*?)\1\s+([\'"`])(.*?)\3'
+            find = re.match(pattern, message.text)
+            if not find:
+                bot.send_message(message.chat.id, "Неверный формат команды. Используйте кавычки для названий доски.")
+                return
+            
+            argument_old = find.group(2).strip()
+            argument_new = find.group(4).strip()
 
             if not argument_old:
                 bot.send_message(message.chat.id, "Укажите нынешнее название доски.")

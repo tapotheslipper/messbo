@@ -4,22 +4,30 @@ class Board:
     def __init__(
         self,
         owner_id: int,
-        board_name: str,
-        board_id: int = None
+        name: str,
+        id: int = None,
+        created_at_utc: datetime = None,
+        last_modified_at_utc: datetime = None
     ):
-        self.id = board_id
-        self.name = board_name
+        self.id = id
+        self.name = name
         self.owner_id = owner_id
 
-        self.created_at_utc = datetime.now(timezone.utc).isoformat()
-        self.last_modified_at_utc = self.created_at_utc
+        if created_at_utc is None:
+            self.created_at_utc = datetime.now(timezone.utc)
+        else:
+            self.created_at_utc = created_at_utc
+        if last_modified_at_utc is None:
+            self.last_modified_at_utc = datetime.now(timezone.utc)
+        else:
+            self.last_modified_at_utc = last_modified_at_utc
 
     def set_name(self, new_name):
         self.name = new_name
         self.update_last_modified()
 
     def update_last_modified(self):
-        self.last_modified_at_utc = datetime.now(timezone.utc).isoformat()
+        self.last_modified_at_utc = datetime.now(timezone.utc)
 
     def __repr__(self):
         return (
@@ -27,6 +35,6 @@ class Board:
             f"(id={self.id}, "
             f"name={self.name}, "
             f"owner_id={self.owner_id}, "
-            f"created_at_utc={self.created_at_utc}, "
-            f"last_modified_at_utc={self.last_modified_at_utc})"
+            f"created_at_utc={self.created_at_utc.isoformat()}, "
+            f"last_modified_at_utc={self.last_modified_at_utc.isoformat()})"
         )
