@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+
 class Board:
     def __init__(
         self,
@@ -7,7 +8,7 @@ class Board:
         name: str,
         id: int = None,
         created_at_utc: datetime = None,
-        last_modified_at_utc: datetime = None
+        last_modified_at_utc: datetime = None,
     ):
         self.id = id
         self.name = name

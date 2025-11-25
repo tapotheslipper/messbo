@@ -91,9 +91,12 @@ def register_handlers(bot: TeleBot, controller: BoardController):
             pattern = r'/messbo_rename\s+([\'"`])(.*?)\1\s+([\'"`])(.*?)\3'
             find = re.match(pattern, message.text)
             if not find:
-                bot.send_message(message.chat.id, "Неверный формат команды. Используйте кавычки для названий доски.")
+                bot.send_message(
+                    message.chat.id,
+                    "Неверный формат команды. Используйте кавычки для названий доски.",
+                )
                 return
-            
+
             argument_old = find.group(2).strip()
             argument_new = find.group(4).strip()
 
@@ -110,10 +113,36 @@ def register_handlers(bot: TeleBot, controller: BoardController):
                 message.from_user.id, argument_old, argument_new
             )
 
-            reply = f"Доска {argument_old} переименована в {argument_new}." if rename_ok else "Не удалось переименовать доску."
+            reply = (
+                f"Доска {argument_old} переименована в {argument_new}."
+                if rename_ok
+                else "Не удалось переименовать доску."
+            )
             bot.send_message(message.chat.id, reply)
         except Exception as exc:
             logger.error(f"Error renaming board: {exc}")
+            bot.send_message(message.chat.id, "Ошибка. Попробуйте позже.")
+
+    @bot.message_handler(commands=["messbo_remove_board"])
+    def remove_board_handler(message):
+        try:
+            parts = message.text.split(maxsplit=1)
+            argument = parts[1] if len(parts) > 1 else None
+
+            if not argument:
+                bot.send_message(message.chat.id, "Укажите название доски на удаление.")
+                return
+
+            remove_ok = controller.remove_board(message.from_user.id, argument)
+
+            reply = (
+                f"Доска {argument} успешно удалена."
+                if remove_ok
+                else f"Не удалось удалить доску {argument}."
+            )
+            bot.send_message(message.chat.id, reply)
+        except Exception as exc:
+            logger.error(f"Error removing board: {exc}")
             bot.send_message(message.chat.id, "Ошибка. Попробуйте позже.")
 
     @bot.message_handler(

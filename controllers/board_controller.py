@@ -34,8 +34,8 @@ class BoardController:
                 board_name = f"board{count}"
 
             board = Board(
-                owner_id = user_id,
-                name = board_name,
+                owner_id=user_id,
+                name=board_name,
             )
 
             cur.execute(
@@ -62,11 +62,8 @@ class BoardController:
         con = self._create_con()
         cur = self._create_cur(con)
         try:
-            cur.execute(
-                "SELECT name FROM boards WHERE owner_id = ?",
-                (owner_id,)
-            )
-            boards_list = [row['name'] for row in cur.fetchall()]
+            cur.execute("SELECT name FROM boards WHERE owner_id = ?", (owner_id,))
+            boards_list = [row["name"] for row in cur.fetchall()]
             return boards_list
         except Exception as exc:
             logger.error(f"Error showing all boards: '{exc}'")
@@ -99,32 +96,79 @@ class BoardController:
         con = self._create_con()
         cur = self._create_cur(con)
         try:
-            logger.info(f"Attempting to rename '{old_name}' to '{new_name}' for user {owner_id}.")
+            logger.info(
+                f"Attempting to rename '{old_name}' to '{new_name}' for user {owner_id}."
+            )
             cur.execute(
                 "SELECT * FROM boards WHERE owner_id = ? AND name = ?",
-                (owner_id, old_name)
+                (owner_id, old_name),
             )
             row = cur.fetchone()
-            if row:
-                board = self._row_to_board(row)
-                board.set_name(new_name)
-            
-                cur.execute(
-                    "UPDATE boards SET name = ?, last_modified_at_utc = ? WHERE owner_id = ? AND name = ?",
-                    (
-                        board.name,
-                        board.last_modified_at_utc.isoformat(),
-                        owner_id,
-                        old_name
-                    ),
-                )
-                con.commit()
-                logger.info(f"Board '{old_name}' renamed to '{new_name}' by user '{owner_id}'.")
-                return True
-            else:
+            if not row:
                 return False
+
+            board = self._row_to_board(row)
+            board.set_name(new_name)
+            cur.execute(
+                "UPDATE boards SET name = ?, last_modified_at_utc = ? WHERE owner_id = ? AND name = ?",
+                (
+                    board.name,
+                    board.last_modified_at_utc.isoformat(),
+                    board.owner_id,
+                    old_name,
+                ),
+            )
+
+            con.commit()
+            logger.info(
+                f"Board '{old_name}' renamed to '{new_name}' by user '{owner_id}'."
+            )
+            return True
         except Exception as exc:
-            logger.error(f"Error renaming board from '{old_name}' to '{new_name}' by user '{owner_id}': '{exc}'")
+            logger.error(
+                f"Error renaming board from '{old_name}' to '{new_name}' by user '{owner_id}': '{exc}'"
+            )
+            con.rollback()
+            return None
+        finally:
+            con.close()
+
+    def remove_board(self, owner_id: int, board_name: str):
+        con = self._create_con()
+        cur = self._create_cur(con)
+        try:
+            logger.info(
+                f"Attempting to remove board '{board_name}' by user '{owner_id}'."
+            )
+
+            cur.execute(
+                "SELECT id FROM boards WHERE owner_id = ? AND name = ?",
+                (
+                    owner_id,
+                    board_name,
+                ),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+
+            cur.execute(
+                "DELETE FROM boards WHERE owner_id = ? AND name = ?",
+                (
+                    owner_id,
+                    board_name,
+                ),
+            )
+
+            con.commit()
+            logger.info(
+                f"Board '{board_name}' is successfully removed by user '{owner_id}'."
+            )
+            return True
+        except Exception as exc:
+            logger.error(
+                f"Error removing board '{board_name}' by user '{owner_id}': {exc}."
+            )
             con.rollback()
             return None
         finally:
@@ -132,11 +176,11 @@ class BoardController:
 
     def _row_to_board(self, row):
         return Board(
-            id = row['id'],
-            name = row['name'],
-            owner_id = row['owner_id'],
-            created_at_utc = datetime.fromisoformat(row['created_at_utc']),
-            last_modified_at_utc = datetime.fromisoformat(row['last_modified_at_utc'])
+            id=row["id"],
+            name=row["name"],
+            owner_id=row["owner_id"],
+            created_at_utc=datetime.fromisoformat(row["created_at_utc"]),
+            last_modified_at_utc=datetime.fromisoformat(row["last_modified_at_utc"]),
         )
 
     def _create_con(self):
