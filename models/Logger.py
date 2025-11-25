@@ -1,9 +1,10 @@
 import logging
 from pathlib import Path
 
+
 class Logger:
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(Logger, cls).__new__(cls)
@@ -12,8 +13,8 @@ class Logger:
 
     def setup_logging(self):
         PROJECT_ROOT = Path(__file__).parent.parent
-        LOG_DIR = PROJECT_ROOT / 'logs'
-        LOG_FILE = LOG_DIR / 'bot.log'
+        LOG_DIR = PROJECT_ROOT / "logs"
+        LOG_FILE = LOG_DIR / "bot.log"
 
         try:
             LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -21,8 +22,8 @@ class Logger:
             logging.basicConfig(
                 filename=LOG_FILE,
                 level=logging.INFO,
-                format='%(asctime)s - %(levelname)s - %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                format="%(asctime)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
 
             logger = logging.getLogger(__name__)
