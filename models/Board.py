@@ -4,14 +4,16 @@ from datetime import datetime, timezone
 class Board:
     def __init__(
         self,
-        owner_id: int,
         name: str,
+        owner_id: int,
+        chat_id: int,
         id: int = None,
         created_at_utc: datetime = None,
         last_modified_at_utc: datetime = None,
     ):
         self.id = id
         self.name = name
+        self.chat_id = chat_id
         self.owner_id = owner_id
 
         if created_at_utc is None:

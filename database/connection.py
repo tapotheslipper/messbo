@@ -20,10 +20,39 @@ def initialize_db():
         CREATE TABLE IF NOT EXISTS boards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(64) NOT NULL,
+            chat_id INTEGER NOT NULL,
             owner_id INTEGER NOT NULL,
             created_at_utc TEXT NOT NULL,
-            last_modified_at_utc TEXT NOT NULL
-        )"""
+            last_modified_at_utc TEXT NOT NULL,
+            UNIQUE(name, chat_id)
+        )
+        """
     )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS board_access (
+            board_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE,
+            PRIMARY KEY(board_id, user_id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_owner_name
+        ON boards (owner_id, name)
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_board_access
+        ON board_access (board_id, user_id)
+        """
+    )
+
     con.commit()
     con.close()

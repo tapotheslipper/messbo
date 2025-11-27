@@ -94,7 +94,7 @@ def register_handlers(bot: TeleBot, controller: BoardController):
             if not find:
                 bot.send_message(
                     message.chat.id,
-                    "Неверный формат команды. Используйте кавычки для названий доски.",
+                    "Неверный формат команды.",
                 )
                 return
 
@@ -110,15 +110,21 @@ def register_handlers(bot: TeleBot, controller: BoardController):
                 )
                 return
 
-            rename_ok = controller.rename_board(
+            res = controller.rename_board(
                 message.from_user.id, argument_old, argument_new
             )
 
-            reply = (
-                f"Доска {argument_old} переименована в {argument_new}."
-                if rename_ok
-                else "Не удалось переименовать доску."
-            )
+            match res:
+                case "renamed":
+                    reply = f"Доска '{argument_old}' переименована в '{argument_new}'."
+                case "duplicate":
+                    reply = f"Доска с именем '{argument_new}' уже существует."
+                case "no_access":
+                    reply = "У вас нет прав на редактирование данной доски."
+                case "not_found":
+                    reply = f"Доска '{argument_old}' не найдена."
+                case _:
+                    reply = "Ошибка. Попробуйте позже."
             bot.send_message(message.chat.id, reply)
         except Exception as exc:
             logger.error(f"Error renaming board: {exc}")
