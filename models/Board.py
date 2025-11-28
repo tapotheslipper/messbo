@@ -27,9 +27,9 @@ class Board:
 
     def set_name(self, new_name):
         self.name = new_name
-        self.update_last_modified()
+        self._update_last_modified()
 
-    def update_last_modified(self):
+    def _update_last_modified(self):
         self.last_modified_at_utc = datetime.now(timezone.utc)
 
     def __repr__(self):

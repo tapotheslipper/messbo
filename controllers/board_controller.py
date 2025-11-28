@@ -12,7 +12,7 @@ class BoardController:
 
     def create_board(
         self, chat_id: int, user_id: int, board_name: str | None
-    ) -> Board | None:
+    ) -> tuple[Board | None, str]:
         con = self._create_con()
         cur = self._create_cur(con)
         try:
@@ -54,16 +54,16 @@ class BoardController:
             logger.info(
                 f"Board '{board.name}' created in chat '{board.chat_id}' by user '{board.owner_id}'."
             )
-            return board
+            return board, board.name
         except sqlite3.IntegrityError:
             logger.warning(
                 f"Duplicate board name attempt: '{board_name}' by user '{user_id}'."
             )
-            return None
+            return None, board_name
         except Exception as exc:
             logger.error(f"Error creating board: '{exc}'.")
             con.rollback()
-            return None
+            return None, board_name if board_name else "автосгенерированная доска"
         finally:
             con.close()
 
@@ -204,7 +204,9 @@ class BoardController:
         finally:
             con.close()
 
-    def add_access(self, chat_id: int, board_id: int, owner_id: int, add_user_id: int) -> bool:
+    def add_access(
+        self, chat_id: int, board_id: int, owner_id: int, add_user_id: int
+    ) -> bool:
         con = self._create_con()
         cur = self._create_cur(con)
         try:

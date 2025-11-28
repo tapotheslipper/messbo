@@ -34,8 +34,23 @@ def initialize_db():
         CREATE TABLE IF NOT EXISTS board_access (
             board_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
-            FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE,
-            PRIMARY KEY(board_id, user_id)
+            PRIMARY KEY(board_id, user_id),
+            FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS access_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            board_id INTEGER NOT NULL,
+            requester_id INTEGER NOT NULL,
+            target_id INTEGER NOT NULL,
+            type TEXT NOT NULL CHECK(status IN ('pending', 'accepted', 'denied')),
+            created_at_utc TEXT NOT NULL,
+            FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE
         )
         """
     )
@@ -51,6 +66,13 @@ def initialize_db():
         """
         CREATE INDEX IF NOT EXISTS idx_board_access
         ON board_access (board_id, user_id)
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS idx_access_requests
+        ON access_requests (chat_id, board_id, status)
         """
     )
 
