@@ -12,7 +12,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-def run_bot(bot):
+def run_bot_polling(bot):
     logger.info("Bot is starting...")
     print("Bot is starting...")
 

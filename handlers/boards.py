@@ -8,7 +8,6 @@ logger = Logger().get_logger()
 
 
 def register_board_handlers(bot: TeleBot, controller: BoardController):
-
     @bot.message_handler(commands=["messbo_new_board"])
     def new_board_handler(message):
         try:

@@ -13,8 +13,7 @@ class BoardController:
     def create_board(
         self, chat_id: int, user_id: int, board_name: str | None
     ) -> tuple[Board | None, str]:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             if board_name:
                 board_name = " ".join(board_name.strip().split())
@@ -68,8 +67,7 @@ class BoardController:
             con.close()
 
     def show_all_boards(self, chat_id: int) -> list:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute("SELECT name FROM boards WHERE chat_id = ?", (chat_id,))
             boards_list = [row["name"] for row in cur.fetchall()]
@@ -81,8 +79,7 @@ class BoardController:
             con.close()
 
     def show_one_board(self, chat_id: int, board_name: str) -> Board | None:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute(
                 "SELECT * FROM boards WHERE chat_id = ? AND name = ?",
@@ -104,8 +101,7 @@ class BoardController:
     def rename_board(
         self, chat_id: int, user_id: int, old_name: str, new_name: str
     ) -> str:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute(
                 "SELECT * FROM boards WHERE chat_id = ? AND name = ?",
@@ -170,8 +166,7 @@ class BoardController:
             con.close()
 
     def remove_board(self, chat_id: int, user_id: int, board_name: str) -> bool:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute(
                 "SELECT id FROM boards WHERE chat_id = ? AND name = ? AND owner_id = ?",
@@ -207,8 +202,7 @@ class BoardController:
     def add_access(
         self, chat_id: int, board_id: int, owner_id: int, add_user_id: int
     ) -> bool:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute(
                 "SELECT 1 FROM boards WHERE chat_id = ? AND owner_id = ? AND id = ?",
@@ -247,8 +241,7 @@ class BoardController:
     def remove_access(
         self, chat_id: int, board_id: int, owner_id: int, remove_user_id: int
     ) -> bool:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute(
                 "SELECT 1 FROM boards WHERE chat_id = ? AND owner_id = ? AND id = ?",
@@ -292,8 +285,7 @@ class BoardController:
     # supplementary methods
 
     def _count_chat_boards(self, chat_id: int) -> int:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute("SELECT COUNT(*) FROM boards WHERE chat_id = ?", (chat_id,))
             return cur.fetchone()[0]
@@ -304,8 +296,7 @@ class BoardController:
             con.close()
 
     def _has_access(self, board_id: int, user_id: int) -> bool:
-        con = self._create_con()
-        cur = self._create_cur(con)
+        con, cur = self._create_con()
         try:
             cur.execute(
                 "SELECT 1 FROM board_access WHERE board_id = ? AND user_id = ?",
@@ -326,7 +317,6 @@ class BoardController:
         )
 
     def _create_con(self):
-        return get_connection()
-
-    def _create_cur(self, connection):
-        return connection.cursor()
+        con = get_connection()
+        cur = con.cursor()
+        return con, cur

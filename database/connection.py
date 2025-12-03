@@ -25,7 +25,14 @@ def initialize_db():
             created_at_utc TEXT NOT NULL,
             last_modified_at_utc TEXT NOT NULL,
             UNIQUE(name, chat_id)
-        )
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_owner_name
+        ON boards (owner_id, name);
         """
     )
 
@@ -36,43 +43,44 @@ def initialize_db():
             user_id INTEGER NOT NULL,
             PRIMARY KEY(board_id, user_id),
             FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS access_requests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER NOT NULL,
-            board_id INTEGER NOT NULL,
-            requester_id INTEGER NOT NULL,
-            target_id INTEGER NOT NULL,
-            type TEXT NOT NULL CHECK(status IN ('pending', 'accepted', 'denied')),
-            created_at_utc TEXT NOT NULL,
-            FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_owner_name
-        ON boards (owner_id, name)
+        );
         """
     )
 
     cursor.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_board_access
-        ON board_access (board_id, user_id)
+        ON board_access (board_id, user_id);
         """
     )
 
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS idx_access_requests
-        ON access_requests (chat_id, board_id, status)
+        CREATE TABLE IF NOT EXISTS requests (
+            token TEXT PRIMARY KEY,
+            chat_id INTEGER NOT NULL,
+            board_id INTEGER NOT NULL,
+            requester_id INTEGER NOT NULL,
+            target_id INTEGER NOT NULL,
+            message_id INTEGER NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('mod', 'own')),
+            created_at_utc TEXT NOT NULL,
+            FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_requests
+        ON requests (chat_id, board_id, target_id, type);
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_request_message_id
+        ON requests (chat_id, message_id);
         """
     )
 
