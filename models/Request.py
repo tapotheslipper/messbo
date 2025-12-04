@@ -15,6 +15,7 @@ class Request:
     ):
         self.token = token
         self.chat_id = chat_id
+        self.board_id = board_id
         self.requester_id = requester_id
         self.target_id = target_id
         self.message_id = message_id

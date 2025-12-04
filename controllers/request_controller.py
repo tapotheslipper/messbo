@@ -12,7 +12,12 @@ class RequestController:
         pass
 
     def add_mod_request(
-        self, chat_id: int, board_id: int, requester_id: int, target_id: int
+        self,
+        chat_id: int,
+        board_id: int,
+        requester_id: int,
+        target_id: int,
+        message_id: int,
     ) -> str | None:
         con, cur = self._create_con()
         try:
@@ -24,17 +29,19 @@ class RequestController:
                 board_id=board_id,
                 requester_id=requester_id,
                 target_id=target_id,
+                message_id=message_id,
                 type="mod",
             )
 
             cur.execute(
-                "INSERT INTO requests (token, chat_id, board_id, requester_id, target_id, type, created_at_utc) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO requests (token, chat_id, board_id, requester_id, target_id, message_id, type, created_at_utc) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     request.token,
                     request.chat_id,
                     request.board_id,
                     request.requester_id,
                     request.target_id,
+                    request.message_id,
                     request.type,
                     request.created_at_utc.isoformat(),
                 ),

@@ -16,14 +16,8 @@ class Board:
         self.chat_id = chat_id
         self.owner_id = owner_id
 
-        if created_at_utc is None:
-            self.created_at_utc = datetime.now(timezone.utc)
-        else:
-            self.created_at_utc = created_at_utc
-        if last_modified_at_utc is None:
-            self.last_modified_at_utc = datetime.now(timezone.utc)
-        else:
-            self.last_modified_at_utc = last_modified_at_utc
+        self.created_at_utc = created_at_utc or datetime.now(timezone.utc)
+        self.last_modified_at_utc = last_modified_at_utc or datetime.now(timezone.utc)
 
     def set_name(self, new_name):
         self.name = new_name

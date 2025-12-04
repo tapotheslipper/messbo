@@ -199,45 +199,6 @@ class BoardController:
         finally:
             con.close()
 
-    def add_access(
-        self, chat_id: int, board_id: int, owner_id: int, add_user_id: int
-    ) -> bool:
-        con, cur = self._create_con()
-        try:
-            cur.execute(
-                "SELECT 1 FROM boards WHERE chat_id = ? AND owner_id = ? AND id = ?",
-                (
-                    chat_id,
-                    owner_id,
-                    board_id,
-                ),
-            )
-            if not cur.fetchone():
-                return False
-
-            cur.execute(
-                "INSERT INTO board_access (board_id, user_id) VALUES (?, ?)",
-                (
-                    board_id,
-                    add_user_id,
-                ),
-            )
-            con.commit()
-            logger.info(
-                f"User '{add_user_id}' is granted access to board '{board_id}' in chat '{chat_id}' by user '{owner_id}'."
-            )
-            return True
-        except sqlite3.IntegrityError:
-            logger.warning(
-                f"User '{add_user_id}' already has access to board '{board_id}'."
-            )
-            return False
-        except Exception as exc:
-            logger.error(f"Error adding access: '{exc}'.")
-            return False
-        finally:
-            con.close()
-
     def remove_access(
         self, chat_id: int, board_id: int, owner_id: int, remove_user_id: int
     ) -> bool:
@@ -311,10 +272,23 @@ class BoardController:
         return Board(
             id=row["id"],
             name=row["name"],
+            chat_id=row["chat_id"],
             owner_id=row["owner_id"],
             created_at_utc=datetime.fromisoformat(row["created_at_utc"]),
             last_modified_at_utc=datetime.fromisoformat(row["last_modified_at_utc"]),
         )
+
+    def get_name_by_id(self, board_id: int) -> str | None:
+        con, cur = self._create_con()
+        try:
+            cur.execute("SELECT name FROM boards WHERE id = ?", (board_id,))
+            row = cur.fetchone()
+            return row["name"] if row else None
+        except Exception as exc:
+            logger.error(f"Error fetching board name by id: {exc}")
+            return None
+        finally:
+            con.close()
 
     def _create_con(self):
         con = get_connection()

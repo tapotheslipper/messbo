@@ -50,7 +50,11 @@ def register_request_handlers(
                 return
 
             request_token = request_controller.add_mod_request(
-                message.chat.id, board.id, message.from_user.id, target_id
+                message.chat.id,
+                board.id,
+                message.from_user.id,
+                target_id,
+                message.id,
             )
 
             if request_token:
@@ -108,13 +112,13 @@ def register_request_handlers(
                 )
                 return
 
-            success = requests_controller.accept_mod_request(token)
-            board_name = board_controller.get_board_name(details["board_id"])
+            success = request_controller.accept_mod_request(token)
+            board_name = board_controller.get_name_by_id(details["board_id"])
 
             if success:
                 reply = f"Запрос принят. Доступ модератора к доске '{board_name}' предоставлен."
             else:
-                reply = "Доступ модератора к доске '{board_name}' уже предоставлен или произошлоа ошибка при обработке запроса."
+                reply = f"Доступ модератора к доске '{board_name}' уже предоставлен или произошла ошибка при обработке запроса."
             bot.send_message(message.chat.id, reply)
         except Exception as exc:
             logger.error(f"[ACCEPT REQUEST ERROR] Error accepting request: '{exc}'")
@@ -143,7 +147,7 @@ def register_request_handlers(
                 return
 
             deleted = request_controller.delete_request(token)
-            board_name = board_controller.get_board_name(details["board_id"])
+            board_name = board_controller.get_name_by_id(details["board_id"])
 
             if deleted:
                 reply = f"Запрос модерации доски '{board_name}' отклонён."

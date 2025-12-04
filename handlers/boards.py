@@ -102,7 +102,12 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             ok = controller.remove_board(
                 message.chat.id, message.from_user.id, argument
             )
-            reply = f"Доска '{argument}' удалена." if ok else DEFAULT_MESSAGE
+            reply = (
+                f"Доска '{argument}' удалена."
+                if ok
+                else "Доска не найдена или вы не являетесь её владельцем."
+            )
+            bot.send_message(message.chat.id, reply)
         except Exception as exc:
             logger.error(f"[REMOVE ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
