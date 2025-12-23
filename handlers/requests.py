@@ -12,77 +12,6 @@ def register_request_handlers(
     request_controller: RequestController,
     board_controller: BoardController,
 ):
-
-    @bot.message_handler(commands=["messbo_add_mod"])
-    def add_mod_handler(message):
-        try:
-            logger.info(
-                f"[ADD MOD REQUEST] '{message.from_user.id}': '{message.text}'."
-            )
-
-            if not message.reply_to_message:
-                bot.send_message(
-                    message.chat.id,
-                    "Для назначения модератора доски используйте /messbo_add_mod '<название доски>' в ответ на любое сообщение пользователя, которого хотите назначить.",
-                )
-                return
-            target_id = message.reply_to_message.from_user.id
-
-            pattern = r'/messbo_add_mod\s+([\'"`])(.*?)\1'
-            find = re.match(pattern, message.text)
-            if not find:
-                bot.send_message(message.chat.id, "Некорректный формат команды.")
-                return
-
-            argument_board = find.group(2).strip()
-
-            board = board_controller.show_one_board(message.chat.id, argument_board)
-            if not board:
-                bot.send_message(
-                    message.chat.id, f"Доска '{argument_board}' не найдена."
-                )
-                return
-
-            if board.owner_id != message.from_user.id:
-                bot.send_message(
-                    message.chat.id, "Вы не являетесь владельцем этой доски."
-                )
-                return
-
-            request_token = request_controller.add_mod_request(
-                message.chat.id,
-                board.id,
-                message.from_user.id,
-                target_id,
-                message.id,
-            )
-
-            if request_token:
-                requester = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.username}</a>'
-                target = f'<a href="tg://user?id={target_id}">Пользователь</a>'
-
-                reply = (
-                    f"{target}, {requester} послал Вам запрос на получение прав модерации доски '{argument_board}'.\n"
-                    f"Для подтверждения ответьте на данное сообщение командой /messbo_accept, для отклонения - /messbo_deny.",
-                )
-
-                reply_sent = bot.send_message(
-                    message.chat.id,
-                    reply,
-                    parse_mode="HTML",
-                )
-
-                request_controller.update_request_message_id(
-                    request_token, reply_sent.message_id
-                )
-            else:
-                bot.send_message(
-                    message.chat.id, "Не удалось создать запрос на доступ."
-                )
-        except Exception as exc:
-            logger.error(f"[ADD ACCESS ERROR]: '{exc}'.")
-            bot.send_message(message.chat.id, DEFAULT_MESSAGE)
-
     def get_token_from_reply(message):
         if not message.reply_to_message:
             return None
@@ -90,6 +19,117 @@ def register_request_handlers(
             message.chat.id,
             message.reply_to_message.message_id,
         )
+
+    def extract_board_name(text):
+        pattern = r'/messbo_\w+\s+([\'"`])(.*?)\1'
+        find = re.match(pattern, text)
+        return find.group(2).strip() if find else None
+
+    def _process_permission_request(message, request_type):
+        try:
+            if not message.reply_to_message:
+                hint = (
+                    "назначить модератора"
+                    if request_type == "mod"
+                    else "передать права владельца"
+                )
+                bot.send_message(
+                    message.chat.id, f"Ответьте на сообщения пользователя, чтобы {hint}"
+                )
+                return
+
+            board_name = extract_board_name(message.text)
+            if not board_name:
+                bot.send_message(message.chat.id, "Некорректный формат команды.")
+                return
+
+            board = board_controller.show_one_board(message.chat.id, board_name)
+            if not board or board.owner_id != message.from_user.id:
+                bot.send_message(
+                    message.chat.id,
+                    "Доска не найдена или вы не являетесь её владельцем.",
+                )
+                return
+
+            target_id = message.reply_to_message.from_user.id
+
+            if request_type == "mod":
+                request_token = request_controller.add_mod_request(
+                    message.chat.id,
+                    board.id,
+                    message.from_user.id,
+                    target_id,
+                    message.id,
+                )
+                text_add = "прав модерации"
+            elif request_type == "own":
+                request_token = request_controller.add_own_request(
+                    message.chat.id,
+                    board.id,
+                    message.from_user.id,
+                    target_id,
+                    message.id,
+                )
+                text_add = "прав владения (полный контроль)"
+
+            if request_token:
+                requester = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.username}</a>'
+                target = f'<a href="tg://user?id={target_id}">Пользователь</a>'
+
+                reply = (
+                    f"{target}, {requester} предлагает Вам получение {text_add} доской '{board_name}'.\n"
+                    f"Ответьте на данное сообщение /messbo_accept (для подтверждения) или /messbo_deny (для отклонения)."
+                )
+
+                reply_sent = bot.send_message(message.chat.id, reply, parse_mode="HTML")
+                request_controller.update_request_message_id(
+                    request_token, reply_sent.message_id
+                )
+        except Exception as exc:
+            logger.error(f"[{request_type.upper()} REQUEST ERROR]: {exc}")
+            bot.send_message(message.chat.id, DEFAULT_MESSAGE)
+
+    @bot.message_handler(commands=["messbo_add_mod"])
+    def add_mod_handler(message):
+        _process_permission_request(message, "mod")
+
+    @bot.message_handler(commands=["messbo_owner"])
+    def transfer_ownership_handler(message):
+        _process_permission_request(message, "own")
+
+    @bot.message_handler(commands=["messbo_rm_mod"])
+    def remove_mod_handler(message):
+        try:
+            if not message.reply_to_message:
+                bot.send_message(
+                    message.chat.id,
+                    "Ответьте на сообщение модератора, которого хотите снять с должности.",
+                )
+                return
+
+            board_name = extract_board_name(message.text)
+            board = board_controller.show_one_board(message.chat.id, board_name)
+
+            if not board or board.owner_id != message.from_user.id:
+                bot.send_message(
+                    message.chat.id,
+                    "Доска не найдена или вы не являетесь её владельцем.",
+                )
+                return
+
+            target_id = message.reply_to_message.from_user.id
+            success = request_controller.remove_mod(board.id, target_id)
+
+            if success:
+                reply = (
+                    f"Пользователь больше не является модератором доски '{board_name}'."
+                )
+            else:
+                reply = "Не удалось удалить модератора. Возможно, данный пользователь и не является модератором."
+            bot.send_message(message.chat.id, reply)
+        except Exception as exc:
+            logger.error(f"[RM MOD ERROR]: '{exc}'")
+            bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
     @bot.message_handler(commands=["messbo_accept"])
     def accept_request_handler(message):
@@ -102,26 +142,34 @@ def register_request_handlers(
                 )
                 return
 
-            details = request_controller.get_mod_request(token)
-            if not details:
-                bot.send_message(message.chat.id, "Запрос не найден или уже обработан.")
-                return
-            if details["target_id"] != message.from_user.id:
+            details = request_controller.get_request_details(token)
+            if not details or details["target_id"] != message.from_user.id:
                 bot.send_message(
-                    message.chat.id, "Вы не являетесь адресатом этот запроса."
+                    message.chat.id,
+                    "Запрос не найден или вы не являетесь адресатом данного запроса.",
                 )
                 return
 
-            success = request_controller.accept_mod_request(token)
             board_name = board_controller.get_name_by_id(details["board_id"])
 
-            if success:
-                reply = f"Запрос принят. Доступ модератора к доске '{board_name}' предоставлен."
-            else:
-                reply = f"Доступ модератора к доске '{board_name}' уже предоставлен или произошла ошибка при обработке запроса."
+            if details["type"] == "mod":
+                success = request_controller.accept_mod_request(token)
+                reply = (
+                    f"Вы стали модератором доски '{board_name}'."
+                    if success
+                    else "Ошибка получения прав."
+                )
+            elif details["type"] == "own":
+                success = request_controller.accept_own_request(token)
+                reply = (
+                    f"Права владения доской '{board_name}' переданы Вам."
+                    if success
+                    else "Ошибка передачи прав."
+                )
+
             bot.send_message(message.chat.id, reply)
         except Exception as exc:
-            logger.error(f"[ACCEPT REQUEST ERROR] Error accepting request: '{exc}'")
+            logger.error(f"[ACCEPT REQUEST ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
     @bot.message_handler(commands=["messbo_deny"])
@@ -135,26 +183,16 @@ def register_request_handlers(
                 )
                 return
 
-            details = request_controller.get_mod_request(token)
-            if not details:
-                bot.send_message(message.chat.id, "Запрос не найден или уже обработан.")
-                return
-
-            if details["target_id"] != message.from_user.id:
+            details = request_controller.get_request_details(token)
+            if not details or details["target_id"] != message.from_user.id:
                 bot.send_message(
-                    message.chat.id, "Вы не являетесь адресатом этого запроса."
+                    message.chat.id,
+                    "Запрос не найден или вы не являетесь адресатом данного запроса.",
                 )
                 return
 
-            deleted = request_controller.delete_request(token)
-            board_name = board_controller.get_name_by_id(details["board_id"])
-
-            if deleted:
-                reply = f"Запрос модерации доски '{board_name}' отклонён."
-            else:
-                reply = f"Запрос не найден для отклонения. Возможно, он уже был удалён."
-
-            bot.send_message(message.chat.id, reply)
+            request_controller.delete_request(token)
+            bot.send_message(message.chat.id, "Запрос отклонён.")
         except Exception as exc:
             logger.error(f"[DENY REQUEST ERROR] Error denying request: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)

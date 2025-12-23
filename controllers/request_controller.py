@@ -11,18 +11,23 @@ class RequestController:
     def __init__(self):
         pass
 
-    def add_mod_request(
+    def _create_con(self):
+        con = get_connection()
+        cur = con.cursor()
+        return con, cur
+
+    def _save_request(
         self,
         chat_id: int,
         board_id: int,
         requester_id: int,
         target_id: int,
         message_id: int,
+        req_type: str,
     ) -> str | None:
         con, cur = self._create_con()
         try:
             token = str(uuid.uuid4())
-
             request = Request(
                 token=token,
                 chat_id=chat_id,
@@ -30,7 +35,7 @@ class RequestController:
                 requester_id=requester_id,
                 target_id=target_id,
                 message_id=message_id,
-                type="mod",
+                type=req_type,
             )
 
             cur.execute(
@@ -46,11 +51,95 @@ class RequestController:
                     request.created_at_utc.isoformat(),
                 ),
             )
+
             con.commit()
             return token
         except Exception as exc:
-            logger.error(f"Error saving access request: '{exc}'")
+            logger.error(f"Error saving {req_type} request: '{exc}'")
             return None
+        finally:
+            con.close()
+
+    def add_mod_request(
+        self,
+        chat_id: int,
+        board_id: int,
+        requester_id: int,
+        target_id: int,
+        message_id: int,
+    ) -> str | None:
+        return self._save_request(
+            chat_id, board_id, requester_id, target_id, message_id, "mod"
+        )
+
+    def add_own_request(
+        self,
+        chat_id: int,
+        board_id: int,
+        requester_id: int,
+        target_id: int,
+        message_id: int,
+    ) -> str | None:
+        return self._save_request(
+            chat_id, board_id, requester_id, target_id, message_id, "own"
+        )
+
+    def accept_mod_request(self, token: str) -> bool:
+        data = self.get_request_details(token)
+        if not data or data["type"] != "mod":
+            return False
+
+        self.add_board_mod(data["board_id"], data["target_id"])
+        return self.delete_request(token)
+
+    def accept_own_request(self, token: str) -> bool:
+        data = self.get_request_details(token)
+        if not data or data["type"] != "own":
+            return False
+
+        con, cur = self._create_con()
+        try:
+            cur.execute(
+                "UPDATE boards SET owner_id = ? WHERE id = ?",
+                (data["target_id"], data["board_id"]),
+            )
+            cur.execute(
+                "INSERT OR IGNORE INTO board_access (board_id, user_id) VALUES (?, ?)",
+                (data["board_id"], data["target_id"]),
+            )
+
+            con.commit()
+            return self.delete_request(token)
+        except Exception as exc:
+            logger.error(f"Error accepting ownership request: '{exc}'")
+            return False
+        finally:
+            con.close()
+
+    def remove_mod(self, board_id: int, user_id: int) -> bool:
+        con, cur = self._create_con()
+        try:
+            cur.execute(
+                "DELETE FROM board_access WHERE board_id = ? AND user_id = ?",
+                (board_id, user_id),
+            )
+            con.commit()
+            return cur.rowcount > 0
+        except Exception as exc:
+            logger.error(f"Error removing board access: '{exc}'")
+            return False
+        finally:
+            con.close()
+
+    def delete_request(self, token: str) -> bool:
+        con, cur = self._create_con()
+        try:
+            cur.execute("DELETE FROM requests WHERE token = ?", (token,))
+            con.commit()
+            return cur.rowcount > 0
+        except Exception as exc:
+            logger.error(f"Error deleting request: '{exc}'")
+            return False
         finally:
             con.close()
 
@@ -65,51 +154,9 @@ class RequestController:
                 ),
             )
             con.commit()
-            return True if cur.rowcount > 0 else None
+            return cur.rowcount > 0
         except Exception as exc:
             logger.error(f"Error updating request message_id: '{exc}'")
-            return False
-        finally:
-            con.close()
-
-    def accept_mod_request(self, token: str) -> bool:
-        data = self.get_mod_request(token)
-        if not data or data["type"] != "mod":
-            return False
-
-        ok = self.add_board_mod(data["board_id"], data["target_id"])
-        if not ok:
-            pass
-
-        deleted = self.delete_request(token)
-        return deleted
-
-    def delete_request(self, token: str) -> bool:
-        con, cur = self._create_con()
-        try:
-            cur.execute("DELETE FROM requests WHERE token = ?", (token,))
-            con.commit()
-            return cur.rowcount > 0
-        except Exception as exc:
-            logger.error(f"Error deleting mod requesr: '{exc}'")
-            return False
-        finally:
-            con.close()
-
-    def add_board_mod(self, board_id: int, user_id: int) -> bool:
-        con, cur = self._create_con()
-        try:
-            cur.execute(
-                "INSERT OR IGNORE INTO board_access (board_id, user_id) VALUES (?, ?)",
-                (
-                    board_id,
-                    user_id,
-                ),
-            )
-            con.commit()
-            return cur.rowcount > 0
-        except Exception as exc:
-            logger.error(f"Error adding board access: '{exc}'")
             return False
         finally:
             con.close()
@@ -132,18 +179,31 @@ class RequestController:
         finally:
             con.close()
 
-    def get_mod_request(self, token: str):
+    def get_request_details(self, token: str):
         con, cur = self._create_con()
         try:
             cur.execute("SELECT * FROM requests WHERE token = ?", (token,))
             return cur.fetchone()
         except Exception as exc:
-            logger.error(f"Error fetching access request: '{exc}'")
+            logger.error(f"Error fetching request details: '{exc}'")
             return None
         finally:
             con.close()
 
-    def _create_con(self):
-        con = get_connection()
-        cur = con.cursor()
-        return con, cur
+    def add_board_mod(self, board_id: int, user_id: int) -> bool:
+        con, cur = self._create_con()
+        try:
+            cur.execute(
+                "INSERT OR IGNORE INTO board_access (board_id, user_id) VALUES (?, ?)",
+                (
+                    board_id,
+                    user_id,
+                ),
+            )
+            con.commit()
+            return cur.rowcount > 0
+        except Exception as exc:
+            logger.error(f"Error adding board access: '{exc}'")
+            return False
+        finally:
+            con.close()

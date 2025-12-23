@@ -1,5 +1,9 @@
 # CHANGELOG.md
 
+## [0.6.0] - 2025.12.23
+- Added ownership requests
+- Added board entries system
+
 ## [0.5.0] - 2025.12.04
 - Added sending, accepting and denying moderation requests
 

@@ -1,5 +1,8 @@
 from pathlib import Path
+from models import Logger
 import sqlite3
+
+logger = Logger().get_logger()
 
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH = BASE_DIR / "database" / "bot.db"
@@ -81,6 +84,33 @@ def initialize_db():
         """
         CREATE INDEX IF NOT EXISTS idx_request_message_id
         ON requests (chat_id, message_id);
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            board_id INTEGER NOT NULL,
+            local_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            created_at_utc TEXT NOT NULL,
+            last_modified_at_utc TEXT NOT NULL,
+            FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_entries_board ON entries (board_id);
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_entries_modified ON entries (last_modified_at_utc DESC);
         """
     )
 
