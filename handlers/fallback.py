@@ -3,6 +3,7 @@ from telebot import TeleBot
 
 def register_fallback(bot: TeleBot):
     @bot.message_handler(
+        chat_types=["private"],
         content_types=[
             "photo",
             "video",
@@ -15,7 +16,7 @@ def register_fallback(bot: TeleBot):
             "location",
             "contact",
             "web_app_data",
-        ]
+        ],
     )
     def default_handler(message):
         if not message.text or not message.text.startswith("/"):

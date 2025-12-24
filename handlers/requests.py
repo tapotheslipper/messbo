@@ -21,9 +21,9 @@ def register_request_handlers(
         )
 
     def extract_board_name(text):
-        pattern = r'/messbo_\w+\s+([\'"`])(.*?)\1'
+        pattern = r'/messbo_\w+\s+(?:([\'"`])(.*?)\1|(\S+))'
         find = re.match(pattern, text)
-        return find.group(2).strip() if find else None
+        return (find.group(2) or find.group(3)).strip() if find else None
 
     def _process_permission_request(message, request_type):
         try:
@@ -34,7 +34,8 @@ def register_request_handlers(
                     else "передать права владельца"
                 )
                 bot.send_message(
-                    message.chat.id, f"Ответьте на сообщения пользователя, чтобы {hint}"
+                    message.chat.id,
+                    f"Ответьте на сообщение пользователя, чтобы {hint}.",
                 )
                 return
 

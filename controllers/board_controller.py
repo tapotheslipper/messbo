@@ -2,7 +2,6 @@ from database import get_connection
 from models import Logger, Board, BoardEntry
 from datetime import datetime, timezone
 import sqlite3
-import traceback
 
 logger = Logger().get_logger()
 
@@ -175,8 +174,7 @@ class BoardController:
                 )
             return True
         except Exception as exc:
-            error_details = traceback.format_exc()
-            logger.error(f"[ADD ENTRY ERROR]: '{error_details}'")
+            logger.error(f"[ADD ENTRY ERROR]: '{exc}'")
             return False
         finally:
             con.close()
@@ -312,7 +310,7 @@ class BoardController:
                 "SELECT * FROM entries WHERE board_id = ? AND local_id = ?",
                 (
                     board_id,
-                    entry_id,
+                    local_id,
                 ),
             )
             row = cur.fetchone()

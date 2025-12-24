@@ -4,6 +4,7 @@ from controllers import BoardController
 from models import Logger
 from handlers import DEFAULT_MESSAGE
 from datetime import datetime, timezone
+import traceback
 
 logger = Logger().get_logger()
 
@@ -11,7 +12,7 @@ logger = Logger().get_logger()
 def register_board_handlers(bot: TeleBot, controller: BoardController):
 
     def extract_quoted_name(text):
-        pattern = r'/(?:\w+)\s+([\'"`])(.*?)(?:[\'"`])|/(?:\w+)\s+(.+)'
+        pattern = r'/messbo_\w+\s+(?:([\'"`])(.*?)\1|(\S+))'
         find = re.match(pattern, text)
         if find:
             return (find.group(2) or find.group(3)).strip()
@@ -20,12 +21,22 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
     @bot.message_handler(commands=["messbo_new_board"])
     def new_board_handler(message):
         try:
+
+            if message.chat.type in ["group", "supergroup"]:
+                member = bot.get_chat_member(message.chat.id, message.from_user.id)
+
+                if member.status not in ["administrator", "creator"]:
+                    bot.reply_to(
+                        message,
+                        "Данная команда доступна только администраторам группы.",
+                    )
+                    return
+
             logger.info(
-                f"[NEW BOARD REQUEST] '{message.from_user.id}': '{message.text}'."
+                f"[NEW BOARD REQUEST] user '{message.from_user.id}': '{message.text}'."
             )
 
             argument = extract_quoted_name(message.text)
-
             board, name = controller.create_board(
                 message.chat.id, message.from_user.id, argument
             )
@@ -64,7 +75,7 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             if not argument:
                 bot.send_message(
                     message.chat.id,
-                    "Укажите название доски. Пример: /messbo_show_board",
+                    "Укажите название доски. Пример: /messbo_show_board 'Моя доска'",
                 )
                 return
 
@@ -110,7 +121,7 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
     @bot.message_handler(commands=["messbo_rename"])
     def rename_board_handler(message):
         try:
-            pattern = r'/messbo_rename\s+([\'"`])(.*?)([\'"`])\s+([\'"`])(.*?)([\'"`])'
+            pattern = r'/messbo_rename\s+(?:([\'"`])(.*?)\1|(\S+))\s+(?:([\'"`])(.*?)\4|(\S+))'
             find = re.match(pattern, message.text)
 
             if not find:
@@ -120,17 +131,17 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
                 )
                 return
 
-            old = find.group(2).strip()
-            new = find.group(4).strip()
+            old_name = (find.group(2) or find.group(3)).strip()
+            new_name = (find.group(5) or find.group(6)).strip()
 
             res = controller.rename_board(
-                message.chat.id, message.from_user.id, old, new
+                message.chat.id, message.from_user.id, old_name, new_name
             )
             responses = {
-                "renamed": f"Доска '{old}' переименована в '{new}'.",
-                "name_taken": f"Доска с названием '{new}' уже существует.",
+                "renamed": f"Доска '{old_name}' переименована в '{new_name}'.",
+                "name_taken": f"Доска с названием '{new_name}' уже существует.",
                 "no_access": "У Вас нет прав на редактирование данной доски (вы не модератор/владелец).",
-                "not_found": f"Доска '{old}' не найдена.",
+                "not_found": f"Доска '{old_name}' не найдена.",
             }
             bot.send_message(message.chat.id, responses.get(res, DEFAULT_MESSAGE))
         except Exception as exc:
@@ -165,9 +176,7 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
     @bot.message_handler(commands=["messbo_add"])
     def add_entry_handler(message):
         try:
-            pattern = (
-                r'/messbo_add\s+(?:([\'"`])(.*?)\1|(\S+))\s+(?:([\'"`])(.*?)\4|(.+))'
-            )
+            pattern = r'/messbo_add\s+(?:([\'"`])(.*?)\1|(\S+))\s+([\'"`])(.*?)\4'
             find = re.match(pattern, message.text)
             if not find:
                 bot.send_message(
@@ -176,8 +185,8 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
                 )
                 return
 
-            board_name = find.group(2) or find.group(3)
-            content = find.group(5) or find.group(6)
+            board_name = (find.group(2) or find.group(3)).strip()
+            content = find.group(5).strip()
 
             board = controller.show_one_board(message.chat.id, board_name)
 
@@ -198,19 +207,19 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
     def edit_entry_handler(message):
         try:
             pattern = (
-                r'/messbo_edit\s+([\'"`])(.*?)([\'"`])\s+(\d+)\s+([\'"`])(.*?)([\'"`])'
+                r'/messbo_edit\s+(?:([\'"`])(.*?)\1|(\S+))\s+(\d+)\s+([\'"`])(.*?)\5'
             )
             find = re.match(pattern, message.text)
             if not find:
                 bot.send_message(
                     message.chat.id,
-                    "Некорректный формат команды. Формат: /messbo_edit 'Доска' Локальный ID записи 'Новый текст'",
+                    "Некорректный формат. Формат: /messbo_edit 'Доска' Локальный ID записи 'Новый текст'",
                 )
                 return
 
-            board_name = find.group(2)
+            board_name = (find.group(2) or find.group(3)).strip()
             local_id = int(find.group(4))
-            new_content = find.group(6)
+            new_content = find.group(6).strip()
 
             board = controller.show_one_board(message.chat.id, board_name)
             if not board or not controller._has_access(board.id, message.from_user.id):
@@ -227,16 +236,17 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
                 )
                 return
 
-            if controller.edit_entry(entry["id"], new_content):
+            if controller.edit_entry(entry.id, new_content):
                 bot.send_message(message.chat.id, f"Запись ID {local_id} обновлена.")
         except Exception as exc:
-            logger.error(f"[EDIT ENTRY ERROR]: '{exc}'")
+            traceback_text = traceback.format_exc()
+            logger.error(f"[EDIT ENTRY ERROR]: '{traceback_text}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_remove_entry"])
+    @bot.message_handler(commands=["messbo_remove"])
     def remove_entry_handler(message):
         try:
-            pattern = r'/messbo_remove_entry\s+([\'"`])(.*?)([\'"`])\s+(\d+)'
+            pattern = r'/messbo_remove\s+(?:([\'"`])(.*?)\1|(\S+))\s+(\d+)'
             find = re.match(pattern, message.text)
             if not find:
                 bot.send_message(
@@ -245,8 +255,8 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
                 )
                 return
 
-            board_name = find.group(2)
-            local_id = int(find.group(4))
+            board_name = (find.group(2) or find.group(3)).strip()
+            local_id = int(find.group(4).strip())
 
             board = controller.show_one_board(message.chat.id, board_name)
             if not board or not controller._has_access(board.id, message.from_user.id):
@@ -262,7 +272,7 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
                 return
 
             if controller.delete_entry(entry.id):
-                bot.send_message(message.chat.id, f"Запист с ID {local_id} удалена.")
+                bot.send_message(message.chat.id, f"Запись с ID {local_id} удалена.")
         except Exception as exc:
             logger.error(f"[REMOVE ENTRY ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
