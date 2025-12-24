@@ -1,4 +1,5 @@
 from telebot import TeleBot
+from handlers import PREFIX
 
 
 def register_fallback(bot: TeleBot):
@@ -20,7 +21,7 @@ def register_fallback(bot: TeleBot):
     )
     def default_handler(message):
         if not message.text or not message.text.startswith("/"):
-            reply = "Неизвестная команда или некорректный ввод. Используйте /messbo_help для списка команд."
+            reply = f"Неизвестная команда или некорректный ввод. Используйте /{PREFIX}help для списка команд."
         else:
-            reply = "Неизвестная команда. Используйте /messbo_help для списка команд."
+            reply = f"Неизвестная команда. Используйте /{PREFIX}help для списка команд."
         bot.send_message(message.chat.id, reply)

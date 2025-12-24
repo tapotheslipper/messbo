@@ -1,8 +1,8 @@
 import re
-from telebot import TeleBot
+from telebot import TeleBot, types
 from controllers import RequestController, BoardController
 from models import Logger
-from handlers import DEFAULT_MESSAGE
+from handlers import DEFAULT_MESSAGE, PREFIX
 
 logger = Logger().get_logger()
 
@@ -21,7 +21,7 @@ def register_request_handlers(
         )
 
     def extract_board_name(text):
-        pattern = r'/messbo_\w+\s+(?:([\'"`])(.*?)\1|(\S+))'
+        pattern = r'/messbo_\w+(?:@\w+)?\s+(?:([\'"`])(.*?)\1|(\S+))'
         find = re.match(pattern, text)
         return (find.group(2) or find.group(3)).strip() if find else None
 
@@ -74,15 +74,26 @@ def register_request_handlers(
                 text_add = "прав владения (полный контроль)"
 
             if request_token:
+                markup = types.InlineKeyboardMarkup()
+                btn_accept = types.InlineKeyboardButton(
+                    text="Принять", callback_data=f"req_accept_{request_token}"
+                )
+                btn_deny = types.InlineKeyboardButton(
+                    text="Отклонить", callback_data=f"req_deny_{request_token}"
+                )
+                markup.add(btn_accept, btn_deny)
+
                 requester = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.username}</a>'
                 target = f'<a href="tg://user?id={target_id}">Пользователь</a>'
 
                 reply = (
                     f"{target}, {requester} предлагает Вам получение {text_add} доской '{board_name}'.\n"
-                    f"Ответьте на данное сообщение /messbo_accept (для подтверждения) или /messbo_deny (для отклонения)."
+                    f"Ответьте на данное сообщение /{PREFIX}accept (для подтверждения) или /{PREFIX}deny (для отклонения)."
                 )
 
-                reply_sent = bot.send_message(message.chat.id, reply, parse_mode="HTML")
+                reply_sent = bot.send_message(
+                    message.chat.id, reply, parse_mode="HTML", reply_markup=markup
+                )
                 request_controller.update_request_message_id(
                     request_token, reply_sent.message_id
                 )
@@ -90,15 +101,15 @@ def register_request_handlers(
             logger.error(f"[{request_type.upper()} REQUEST ERROR]: {exc}")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_add_mod"])
+    @bot.message_handler(commands=[PREFIX + "add_mod"])
     def add_mod_handler(message):
         _process_permission_request(message, "mod")
 
-    @bot.message_handler(commands=["messbo_owner"])
+    @bot.message_handler(commands=[PREFIX + "owner"])
     def transfer_ownership_handler(message):
         _process_permission_request(message, "own")
 
-    @bot.message_handler(commands=["messbo_rm_mod"])
+    @bot.message_handler(commands=[PREFIX + "rm_mod"])
     def remove_mod_handler(message):
         try:
             if not message.reply_to_message:
@@ -132,7 +143,7 @@ def register_request_handlers(
             logger.error(f"[RM MOD ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_accept"])
+    @bot.message_handler(commands=[PREFIX + "accept"])
     def accept_request_handler(message):
         try:
             token = get_token_from_reply(message)
@@ -173,7 +184,7 @@ def register_request_handlers(
             logger.error(f"[ACCEPT REQUEST ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_deny"])
+    @bot.message_handler(commands=[PREFIX + "deny"])
     def deny_request_handler(message):
         try:
             token = get_token_from_reply(message)
@@ -197,3 +208,53 @@ def register_request_handlers(
         except Exception as exc:
             logger.error(f"[DENY REQUEST ERROR] Error denying request: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
+
+    # buttons
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("req_"))
+    def handler_request_callback(call):
+        try:
+            _, action, token = call.data.split("_")
+
+            details = request_controller.get_request_details(token)
+
+            if not details or details["target_id"] != call.from_user.id:
+                bot.answer_callback_query(
+                    call.id,
+                    "Вы не являетесь адресатом данного запроса.",
+                    show_alert=True,
+                )
+                return
+
+            board_name = board_controller.get_name_by_id(details["board_id"])
+
+            if action == "accept":
+                if details["type"] == "mod":
+                    success = request_controller.accept_mod_request(token)
+                    res_text = f"Вы стали модератором доски '{board_name}'."
+                elif details["type"] == "own":
+                    success = request_controller.accept_own_request(token)
+                    res_text = f"Права владения доской '{board_name}' переданы Вам."
+
+                if not success:
+                    res_text = "Ошибка при обработке запроса."
+            else:
+                request_controller.delete_request(token)
+                res_text = "Запрос отклонён."
+
+            try:
+                bot.delete_message(
+                    chat_id=call.message.chat.id, message_id=call.message.message_id
+                )
+            except Exception:
+                pass
+
+            bot.send_message(
+                chat_id=call.message.chat.id,
+                text=("<b>Запрос обработан</b>\n\n" f"{res_text}"),
+                parse_mode="HTML",
+            )
+
+            bot.answer_callback_query(call.id, "Запрос обработан.")
+        except Exception as exc:
+            logger.error(f"[CALLBACK REQUEST ERROR]: {exc}")
+            bot.answer_callback_query(call.id, DEFAULT_MESSAGE)

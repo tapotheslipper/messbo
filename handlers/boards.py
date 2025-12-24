@@ -2,7 +2,7 @@ import re
 from telebot import TeleBot
 from controllers import BoardController
 from models import Logger
-from handlers import DEFAULT_MESSAGE
+from handlers import DEFAULT_MESSAGE, PREFIX
 from datetime import datetime, timezone
 import traceback
 
@@ -12,13 +12,13 @@ logger = Logger().get_logger()
 def register_board_handlers(bot: TeleBot, controller: BoardController):
 
     def extract_quoted_name(text):
-        pattern = r'/messbo_\w+\s+(?:([\'"`])(.*?)\1|(\S+))'
+        pattern = r'/messbo_\w+(?:@\w+)?\s+(?:([\'"`])(.*?)\1|(\S+))'
         find = re.match(pattern, text)
         if find:
             return (find.group(2) or find.group(3)).strip()
         return None
 
-    @bot.message_handler(commands=["messbo_new_board"])
+    @bot.message_handler(commands=[PREFIX + "new_board"])
     def new_board_handler(message):
         try:
 
@@ -51,7 +51,7 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             logger.error(f"[NEW BOARD ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_show_boards"])
+    @bot.message_handler(commands=[PREFIX + "show_boards"])
     def show_boards_handler(message):
         try:
             boards = controller.show_all_boards(message.chat.id)
@@ -68,14 +68,14 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             logger.error(f"[SHOW BOARDS ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_show_board"])
+    @bot.message_handler(commands=[PREFIX + "show_board"])
     def show_board_handler(message):
         try:
             argument = extract_quoted_name(message.text)
             if not argument:
                 bot.send_message(
                     message.chat.id,
-                    "Укажите название доски. Пример: /messbo_show_board 'Моя доска'",
+                    f"Укажите название доски. Пример: /{PREFIX}show_board 'Моя доска'",
                 )
                 return
 
@@ -118,16 +118,16 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             logger.error(f"[SHOW BOARD ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_rename"])
+    @bot.message_handler(commands=[PREFIX + "rename"])
     def rename_board_handler(message):
         try:
-            pattern = r'/messbo_rename\s+(?:([\'"`])(.*?)\1|(\S+))\s+(?:([\'"`])(.*?)\4|(\S+))'
+            pattern = r'/messbo_rename(?:@\w+)?\s+(?:([\'"`])(.*?)\1|(\S+))\s+(?:([\'"`])(.*?)\4|(\S+))'
             find = re.match(pattern, message.text)
 
             if not find:
                 bot.send_message(
                     message.chat.id,
-                    "Некорректный формат команды. Используйте: /messbo_rename 'старое имя' 'новое имя'",
+                    f"Некорректный формат команды. Используйте: /{PREFIX}rename 'старое имя' 'новое имя'",
                 )
                 return
 
@@ -148,7 +148,7 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             logger.error(f"[RENAME ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_remove_board"])
+    @bot.message_handler(commands=[PREFIX + "remove_board"])
     def remove_board_handler(message):
         try:
             argument = extract_quoted_name(message.text)
@@ -173,15 +173,17 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
 
     # entries
 
-    @bot.message_handler(commands=["messbo_add"])
+    @bot.message_handler(commands=[PREFIX + "add"])
     def add_entry_handler(message):
         try:
-            pattern = r'/messbo_add\s+(?:([\'"`])(.*?)\1|(\S+))\s+([\'"`])(.*?)\4'
+            pattern = (
+                r'/messbo_add(?:@\w+)?\s+(?:([\'"`])(.*?)\1|(\S+))\s+([\'"`])(.*?)\4'
+            )
             find = re.match(pattern, message.text)
             if not find:
                 bot.send_message(
                     message.chat.id,
-                    "Неверный формат. Используйте: /messbo_add 'Доска' 'Текст записи'",
+                    f"Неверный формат. Используйте: /{PREIFX}add 'Доска' 'Текст записи'",
                 )
                 return
 
@@ -203,17 +205,15 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             logger.error(f"[ADD ENTRY ERROR]: '{exc}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_edit"])
+    @bot.message_handler(commands=[PREFIX + "edit"])
     def edit_entry_handler(message):
         try:
-            pattern = (
-                r'/messbo_edit\s+(?:([\'"`])(.*?)\1|(\S+))\s+(\d+)\s+([\'"`])(.*?)\5'
-            )
+            pattern = r'/messbo_edit(?:@\w+)?\s+(?:([\'"`])(.*?)\1|(\S+))\s+(\d+)\s+([\'"`])(.*?)\5'
             find = re.match(pattern, message.text)
             if not find:
                 bot.send_message(
                     message.chat.id,
-                    "Некорректный формат. Формат: /messbo_edit 'Доска' Локальный ID записи 'Новый текст'",
+                    f"Некорректный формат. Формат: /{PREFIX}edit 'Доска' Локальный ID записи 'Новый текст'",
                 )
                 return
 
@@ -243,15 +243,15 @@ def register_board_handlers(bot: TeleBot, controller: BoardController):
             logger.error(f"[EDIT ENTRY ERROR]: '{traceback_text}'")
             bot.send_message(message.chat.id, DEFAULT_MESSAGE)
 
-    @bot.message_handler(commands=["messbo_remove"])
+    @bot.message_handler(commands=[PREFIX + "remove"])
     def remove_entry_handler(message):
         try:
-            pattern = r'/messbo_remove\s+(?:([\'"`])(.*?)\1|(\S+))\s+(\d+)'
+            pattern = r'/messbo_remove(?:@\w+)?\s+(?:([\'"`])(.*?)\1|(\S+))\s+(\d+)'
             find = re.match(pattern, message.text)
             if not find:
                 bot.send_message(
                     message.chat.id,
-                    "Неверный формат команды. Формат: /messbo_remove_entry 'Доска' [ID записи]",
+                    f"Неверный формат команды. Формат: /{PREFIX}remove 'Доска' [ID записи]",
                 )
                 return
 
