@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## [1.0.0] - 2025.12.25
+- Initial release
+
+## [0.7.0] - 2025.12.24
+- Added buttons
+
 ## [0.6.0] - 2025.12.23
 - Added ownership requests
 - Added board entries system
